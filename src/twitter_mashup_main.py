@@ -1,8 +1,11 @@
 import datetime
+import time
+
 from pymongo import MongoClient
 from twitter import Api
 import os
 
+from src.database_utils import get_tweets_after_date, show_tweets_from_cursor
 
 CONSUMER_KEY = os.getenv('CONSUMER_KEY')
 CONSUMER_SECRET = os.getenv('CONSUMER_SECRET')
@@ -17,17 +20,27 @@ api = Api(CONSUMER_KEY,
 
 client = MongoClient()
 db = client['twitter_mashup_db']
+hashtag = 'photo'
 
-
-for line in api.GetStreamFilter(track='#facebook'):
+i = 0
+t0 = time.time()
+print("start")
+for line in api.GetStreamFilter(track=[hashtag]):
     if 'text' in line:
-        print(line)
+        i += 1
         date = datetime.datetime.strptime(line['created_at'], "%a %b %d %H:%M:%S %z %Y")
-        db['facebook'].insert_one({
+        db[hashtag].insert_one({
             'created_at': date,
             'id': line['id'],
             'text': line['text'],
             'source': line['source'],
-            'lang' : line['lang'],
-            'user_id': line['user']['id']
+            'lang': line['lang'],
+            'user_id': line['user']['id'],
+            'user_name': line['user']['name']
         })
+        if i > 1000:
+            t1 = time.time()
+            print("{} tweets / s".format(i/(t1-t0)))
+            t0 = time.time()
+            i=0
+
